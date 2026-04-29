@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="geometricPrecision">
+  <!-- Left page -->
+  <path d="M3 7 L15 8 L15 26 L3 25 Z" fill="#fbf8f0" stroke="#3d2817" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Right page -->
+  <path d="M29 7 L17 8 L17 26 L29 25 Z" fill="#fbf8f0" stroke="#3d2817" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Coral spine -->
+  <rect x="15" y="7" width="2" height="19" fill="#e88966" stroke="#3d2817" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Ink line on left page -->
+  <line x1="6" y1="16" x2="13" y2="16.5" stroke="#3d2817" stroke-width="1" stroke-linecap="round"/>
+  <!-- Ink line on right page -->
+  <line x1="19" y1="16.5" x2="26" y2="16" stroke="#3d2817" stroke-width="1" stroke-linecap="round"/>
+  <!-- Mint bookmark ribbon -->
+  <path d="M21 7 L23 7 L23 12 L22 11 L21 12 Z" fill="#c4dfd0" stroke="#3d2817" stroke-width="0.75" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" shape-rendering="geometricPrecision">
+  <!-- Mint background -->
+  <rect x="0" y="0" width="512" height="512" fill="#c4dfd0"/>
+
+  <!-- Left page -->
+  <path d="M60 130 L250 140 L250 420 L60 410 Z" fill="#fbf8f0" stroke="#3d2817" stroke-width="8" stroke-linejoin="round"/>
+  <!-- Right page -->
+  <path d="M452 130 L262 140 L262 420 L452 410 Z" fill="#fbf8f0" stroke="#3d2817" stroke-width="8" stroke-linejoin="round"/>
+  <!-- Coral spine -->
+  <rect x="250" y="130" width="12" height="290" fill="#e88966" stroke="#3d2817" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- Script S in centre of left page -->
+  <text x="155" y="300"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-style="italic"
+        font-weight="500"
+        font-size="170"
+        fill="#3d2817"
+        text-anchor="middle"
+        dominant-baseline="middle">S</text>
+
+  <!-- Ink lines on right page -->
+  <line x1="285" y1="200" x2="425" y2="205" stroke="#3d2817" stroke-width="7" stroke-linecap="round"/>
+  <line x1="285" y1="240" x2="415" y2="245" stroke="#3d2817" stroke-width="7" stroke-linecap="round"/>
+  <line x1="285" y1="280" x2="425" y2="285" stroke="#3d2817" stroke-width="7" stroke-linecap="round"/>
+  <line x1="285" y1="320" x2="405" y2="325" stroke="#3d2817" stroke-width="7" stroke-linecap="round"/>
+  <line x1="285" y1="360" x2="420" y2="365" stroke="#3d2817" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Mint bookmark ribbon -->
+  <path d="M330 130 L372 130 L372 210 L351 190 L330 210 Z" fill="#c4dfd0" stroke="#3d2817" stroke-width="7" stroke-linejoin="round"/>
+</svg>

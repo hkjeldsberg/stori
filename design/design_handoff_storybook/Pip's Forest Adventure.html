@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pip's Forest Adventure</title>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Cinzel+Decorative:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(ellipse at 50% 60%,#2d5a27 0%,#172f13 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'IM Fell English',Georgia,serif}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+@keyframes flipNext{0%{transform:rotateY(0deg)}100%{transform:rotateY(-180deg)}}
+@keyframes flipPrev{0%{transform:rotateY(0deg)}100%{transform:rotateY(180deg)}}
+@keyframes shimmer{0%,100%{opacity:.7}50%{opacity:1}}
+
+.flip-page{transform-style:preserve-3d;position:absolute;width:420px;height:580px;top:0;left:0;z-index:30}
+.flip-page.to-left{animation:flipNext .75s cubic-bezier(.45,0,.2,1) forwards;transform-origin:left center}
+.flip-page.to-right{animation:flipPrev .75s cubic-bezier(.45,0,.2,1) forwards;transform-origin:right center}
+.flip-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip-back{transform:rotateY(180deg)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+// ── Story ─────────────────────────────────────────────────────────────
+const STORY=[
+  {type:'cover'},
+  {text:"Deep in the whispering forest, there lived a small white bunny named Pip."},
+  {text:"Every morning, Pip hopped through the dewy meadow to find his breakfast."},
+  {text:"One day, he discovered a hidden path he had never seen before."},
+  {text:"The path was lined with glowing mushrooms and golden flowers."},
+  {text:"Pip followed it deeper into the forest, his nose twitching with curiosity."},
+  {text:"Suddenly, he came upon a sparkling pond beneath a weeping willow tree."},
+  {text:"A family of ducks waddled over and welcomed him with cheerful quacks."},
+  {text:"Together they played in the shimmering water all afternoon long."},
+  {text:"As the sun set and the first stars appeared, Pip headed home."},
+  {text:"He curled up in his cozy burrow, dreaming of more adventures to come."},
+];
+
+// ── Drawing helpers ────────────────────────────────────────────────────
+const K={ink:'#5a3c22',green:'#7ab860',dkGreen:'#4a7840',ltGreen:'#b0d898',brown:'#a07840',ltBrown:'#c8a060',sky:'#a8d8e8',yellow:'#f4d858',pink:'#f0a8b8',purple:'#c8b0e8',blue:'#80bcd8',cream:'#f0e0c0'};
+const sl={strokeLinecap:'round',strokeLinejoin:'round',fill:'none'};
+
+function Bunny({x=0,y=0,s=1,facing='front'}){
+  return(
+    <g transform={`translate(${x},${y}) scale(${s})`} stroke={K.ink} strokeWidth={1.8} {...sl}>
+      <ellipse cx={0} cy={0} rx={13} ry={17} fill={K.cream} stroke={K.ink}/>
+      <circle cx={0} cy={-22} r={10} fill={K.cream} stroke={K.ink}/>
+      {facing==='back'?<>
+        <ellipse cx={-5} cy={-38} rx={3.5} ry={9} fill='#f4d0c8' stroke={K.ink} strokeWidth={1.5}/>
+        <ellipse cx={5} cy={-38} rx={3.5} ry={9} fill='#f4d0c8' stroke={K.ink} strokeWidth={1.5}/>
+        <circle cx={10} cy={3} r={5} fill='white' stroke={K.ink} strokeWidth={1.5}/>
+      </>:<>
+        <ellipse cx={-5} cy={-37} rx={3.5} ry={9} fill='#f4d0c8' stroke={K.ink} strokeWidth={1.5}/>
+        <ellipse cx={5} cy={-37} rx={3.5} ry={9} fill='#f4d0c8' stroke={K.ink} strokeWidth={1.5}/>
+        <circle cx={-3} cy={-23} r={1.8} fill={K.ink}/>
+        <circle cx={3} cy={-23} r={1.8} fill={K.ink}/>
+        <ellipse cx={0} cy={-19} rx={2} ry={1.3} fill={K.pink} stroke='none'/>
+        <circle cx={11} cy={3} r={5} fill='white' stroke={K.ink} strokeWidth={1.5}/>
+        <path d={`M-13,-2 Q-20,3 -16,10`}/>
+        <path d={`M13,-2 Q20,3 16,10`}/>
+        <path d={`M-5,17 Q-9,26 -12,28`}/>
+        <path d={`M5,17 Q9,26 12,28`}/>
+      </>}
+    </g>
+  );
+}
+function Tree({x,y,c=K.green,h=80}){
+  return<g>
+    <rect x={x-5} y={y} width={10} height={h} fill={K.ltBrown} stroke={K.ink} strokeWidth={1.5} rx={3}/>
+    <ellipse cx={x} cy={y-5} rx={26} ry={32} fill={c} stroke={K.ink} strokeWidth={1.5}/>
+    <ellipse cx={x} cy={y-18} rx={18} ry={25} fill={K.dkGreen} stroke={K.ink} strokeWidth={1.5}/>
+  </g>;
+}
+function Flower({x,y,c=K.pink,r=8}){
+  const pts=[0,1,2,3,4].map(i=>{const a=i/5*Math.PI*2;return[x+Math.cos(a)*r,y+Math.sin(a)*r-.3*r];});
+  return<g>
+    <line x1={x} y1={y+r*.5} x2={x} y2={y+r*2.5} stroke={K.green} strokeWidth={1.5} strokeLinecap='round'/>
+    {pts.map(([px,py],i)=><circle key={i} cx={px} cy={py} r={r*.45} fill={c} stroke='none'/>)}
+    <circle cx={x} cy={y} r={r*.38} fill={K.yellow} stroke={K.ink} strokeWidth={1}/>
+  </g>;
+}
+function Mushroom({x,y,glow=false}){
+  return<g>
+    <rect x={x-4.5} y={y} width={9} height={13} fill='#f0e8d8' stroke={K.ink} strokeWidth={1.5} rx={2}/>
+    <ellipse cx={x} cy={y} rx={14} ry={8} fill={glow?'#f8a0c0':'#e87070'} stroke={K.ink} strokeWidth={1.5}/>
+    {glow&&<ellipse cx={x} cy={y} rx={18} ry={11} fill='rgba(248,160,192,.18)' stroke='none'/>}
+    <circle cx={x-4} cy={y-2} r={2} fill='rgba(255,255,255,.7)' stroke='none'/>
+    <circle cx={x+4} cy={y-4} r={1.5} fill='rgba(255,255,255,.6)' stroke='none'/>
+  </g>;
+}
+function Duck({x,y}){
+  return<g stroke={K.ink} strokeWidth={1.5} {...sl}>
+    <ellipse cx={x} cy={y} rx={14} ry={10} fill='#f0e898'/>
+    <circle cx={x+10} cy={y-8} r={8} fill='#f0e898'/>
+    <path d={`M${x+16},${y-8} Q${x+22},${y-6} ${x+18},${y-3}`} fill='#f0a028' stroke={K.ink} strokeWidth={1.5}/>
+    <circle cx={x+12} cy={y-10} r={1.5} fill={K.ink}/>
+    <path d={`M${x-4},${y-4} Q${x+2},${y-8} ${x+8},${y-4}`}/>
+    <line x1={x-2} y1={y+10} x2={x-2} y2={y+18} stroke='#f0a028' strokeWidth={1.5} strokeLinecap='round'/>
+    <line x1={x+4} y1={y+10} x2={x+4} y2={y+18} stroke='#f0a028' strokeWidth={1.5} strokeLinecap='round'/>
+  </g>;
+}
+function Stars({pts}){
+  return<>{pts.map((p,i)=>{
+    const x=p[0],y=p[1],op=p[2]||.7;
+    return<g key={i} opacity={op}>
+      <line x1={x-5} y1={y} x2={x+5} y2={y} stroke='#f8e860' strokeWidth={1.5} strokeLinecap='round'/>
+      <line x1={x} y1={y-5} x2={x} y2={y+5} stroke='#f8e860' strokeWidth={1.5} strokeLinecap='round'/>
+    </g>;
+  })}</>;
+}
+
+// ── 11 Illustrations ───────────────────────────────────────────────────
+function I0(){ // Cover
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#c8e8d0' rx={4}/>
+    <circle cx={240} cy={55} r={32} fill='#f8e870' opacity={.7}/>
+    {[0,1,2,3,4,5,6,7].map(i=>{const a=i/8*Math.PI*2;return<line key={i} x1={240+Math.cos(a)*34} y1={55+Math.sin(a)*34} x2={240+Math.cos(a)*46} y2={55+Math.sin(a)*46} stroke='#f8d830' strokeWidth={2} strokeLinecap='round'/>;} )}
+    <Tree x={25} y={200} c={K.dkGreen}/><Tree x={75} y={215} c={K.ltGreen}/><Tree x={238} y={205} c={K.dkGreen}/><Tree x={275} y={220} c={K.green}/>
+    <rect x={-10} y={325} width={320} height={55} fill='#a8cc88'/>
+    <ellipse cx={150} cy={325} rx={165} ry={18} fill='#a8cc88'/>
+    <ellipse cx={150} cy={308} rx={38} ry={20} fill={K.ltBrown} stroke={K.ink} strokeWidth={2}/>
+    <ellipse cx={150} cy={303} rx={24} ry={15} fill='#8a5830' stroke={K.ink} strokeWidth={2}/>
+    <path d="M137,303 Q150,288 163,303" fill='#8a5830' stroke={K.ink} strokeWidth={1.5}/>
+    <circle cx={164} cy={301} r={2.5} fill={K.ltBrown} stroke={K.ink} strokeWidth={1}/>
+    <Bunny x={150} y={275} s={1.05}/>
+    {[[88,316,K.pink],[108,324,K.purple],[200,318,K.yellow],[218,310,K.pink]].map(([x,y,c],i)=><Flower key={i} x={x} y={y} c={c}/>)}
+    <Stars pts={[[100,45,.8],[165,30,.6],[60,70,.7]]}/>
+  </svg>;
+}
+function I1(){ // Forest home
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#cce8d8' rx={4}/>
+    <Tree x={18} y={155}/><Tree x={65} y={175} c={K.ltGreen}/><Tree x={250} y={160}/><Tree x={278} y={185} c={K.ltGreen}/><Tree x={155} y={145}/>
+    <rect x={-10} y={310} width={320} height={70} fill='#a0c880'/>
+    <ellipse cx={150} cy={310} rx={168} ry={18} fill='#a0c880'/>
+    <ellipse cx={150} cy={300} rx={44} ry={22} fill={K.brown} stroke={K.ink} strokeWidth={2}/>
+    <ellipse cx={150} cy={295} rx={29} ry={18} fill='#7a4820' stroke={K.ink} strokeWidth={2}/>
+    <path d="M137,295 Q150,279 163,295" fill='#7a4820' stroke={K.ink} strokeWidth={1.5}/>
+    <circle cx={163} cy={293} r={2.5} fill={K.ltBrown} stroke={K.ink} strokeWidth={1}/>
+    <g transform="translate(150,275) scale(.85)">
+      <circle cx={0} cy={-22} r={10} fill={K.cream} stroke={K.ink} strokeWidth={2}/>
+      <ellipse cx={-5} cy={-37} rx={3.5} ry={9} fill='#f4d0c8' stroke={K.ink} strokeWidth={1.5}/>
+      <ellipse cx={5} cy={-37} rx={3.5} ry={9} fill='#f4d0c8' stroke={K.ink} strokeWidth={1.5}/>
+      <circle cx={-3} cy={-23} r={1.8} fill={K.ink}/><circle cx={3} cy={-23} r={1.8} fill={K.ink}/>
+      <ellipse cx={0} cy={-19} rx={2} ry={1.3} fill={K.pink} stroke='none'/>
+    </g>
+    {[[78,305,K.pink],[100,316,K.purple],[202,308,K.yellow],[222,316,K.green]].map(([x,y,c],i)=><Flower key={i} x={x} y={y} c={c}/>)}
+    <Stars pts={[[185,65],[108,42],[242,82]]}/>
+    <path d="M0,328 Q40,320 80,328 Q120,336 160,328 Q200,320 240,328 Q270,334 300,328" fill='none' stroke='#7a9840' strokeWidth={1.5}/>
+  </svg>;
+}
+function I2(){ // Morning hop
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#e4f4d4' rx={4}/>
+    <circle cx={150} cy={85} r={42} fill='#f8e870' opacity={.65}/>
+    {[0,1,2,3,4,5,6,7,8,9].map(i=>{const a=i/10*Math.PI*2;return<line key={i} x1={150+Math.cos(a)*44} y1={85+Math.sin(a)*44} x2={150+Math.cos(a)*58} y2={85+Math.sin(a)*58} stroke='#f8d830' strokeWidth={2} strokeLinecap='round'/>;}) }
+    <rect x={-10} y={300} width={320} height={80} fill='#b0d880'/>
+    <ellipse cx={150} cy={300} rx={168} ry={18} fill='#b0d880'/>
+    <path d="M40,370 Q90,345 140,320 Q190,300 275,308" fill='none' stroke='#c8a850' strokeWidth={16} strokeLinecap='round' opacity={.65}/>
+    {[[58,290,3.5],[80,281,3],[100,294,3.5],[200,285,3],[222,291,3.5]].map(([x,y,r],i)=><circle key={i} cx={x} cy={y} r={r} fill={K.sky} stroke='#80b0d0' strokeWidth={1} opacity={.85}/>)}
+    {[[38,292,K.pink,10],[68,306,K.purple,8],[118,294,K.yellow,9],[178,300,K.green,8],[242,288,K.pink,10],[260,300,K.yellow,9]].map(([x,y,c,r],i)=><Flower key={i} x={x} y={y} c={c} r={r}/>)}
+    <Bunny x={150} y={258} s={1}/>
+    {[[98,316],[113,311],[128,317]].map(([x,y],i)=><ellipse key={i} cx={x} cy={y} rx={4} ry={2} fill={K.brown} opacity={.35}/>)}
+    <g opacity={.7}>
+      <ellipse cx={60} cy={52} rx={30} ry={18} fill='white'/><ellipse cx={80} cy={43} rx={22} ry={15} fill='white'/>
+      <ellipse cx={240} cy={65} rx={26} ry={15} fill='white'/>
+    </g>
+  </svg>;
+}
+function I3(){ // Hidden path
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#d4e8d0' rx={4}/>
+    <path d="M30,370 Q75,342 95,300 Q108,272 80,244" fill='none' stroke={K.ltBrown} strokeWidth={18} strokeLinecap='round' opacity={.6}/>
+    <path d="M98,292 Q128,270 158,242 Q188,212 222,202" fill='none' stroke={K.brown} strokeWidth={10} strokeLinecap='round' opacity={.5} strokeDasharray="18,8"/>
+    <Tree x={18} y={148}/><Tree x={48} y={218} c={K.ltGreen}/><Tree x={258} y={158}/><Tree x={238} y={228} c={K.dkGreen}/>
+    <ellipse cx={150} cy={260} rx={50} ry={25} fill={K.dkGreen} stroke={K.ink} strokeWidth={1.5}/>
+    <ellipse cx={128} cy={255} rx={35} ry={20} fill={K.green} stroke={K.ink} strokeWidth={1.5}/>
+    <ellipse cx={170} cy={258} rx={30} ry={18} fill={K.ltGreen} stroke={K.ink} strokeWidth={1.5}/>
+    <Stars pts={[[177,225,.8],[196,215,.7],[165,205,.8]]}/>
+    <rect x={-10} y={320} width={320} height={60} fill='#a0c878'/>
+    <Bunny x={88} y={292} s={.92}/>
+    <text x={212} y={188} fontFamily="Georgia,serif" fontSize={28} fill={K.yellow} opacity={.65} textAnchor="middle">?</text>
+  </svg>;
+}
+function I4(){ // Mushroom path
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#e4e0f0' rx={4}/>
+    <path d="M35,370 Q95,330 148,278 Q198,228 258,200" fill='none' stroke='#c8b888' strokeWidth={14} strokeLinecap='round' opacity={.7}/>
+    <rect x={-10} y={310} width={320} height={70} fill='#c0d890'/>
+    {[[55,282],[88,262],[128,244],[168,230],[208,218],[244,210]].map(([x,y],i)=><Mushroom key={i} x={x} y={y} glow/>)}
+    {[[65,296,K.yellow,11],[105,286,K.yellow,9],[155,270,K.yellow,10],[183,255,K.yellow,9]].map(([x,y,c,r],i)=><Flower key={i} x={x} y={y} c={c} r={r}/>)}
+    {[[75,290,K.pink,8],[120,274,K.purple,7],[202,248,K.pink,8]].map(([x,y,c,r],i)=><Flower key={`p${i}`} x={x} y={y} c={c} r={r}/>)}
+    {[[55,277],[130,239],[210,214]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={20} fill='rgba(248,160,200,.15)' stroke='none'/>)}
+    <Bunny x={68} y={278} s={.88}/>
+    <Tree x={18} y={140} c={K.dkGreen}/><Tree x={270} y={150} c={K.dkGreen}/>
+    {[[162,122],[202,102],[122,112],[242,132]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={2.5} fill={K.yellow} opacity={.7}/>)}
+  </svg>;
+}
+function I5(){ // Following path
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#c4d8c4' rx={4}/>
+    <Tree x={8} y={118} c={K.dkGreen} h={100}/><Tree x={48} y={100} c={K.green}/><Tree x={88} y={128} c={K.dkGreen}/>
+    <Tree x={198} y={108} c={K.dkGreen} h={100}/><Tree x={248} y={122} c={K.green}/><Tree x={278} y={98} c={K.dkGreen}/>
+    <rect x={-10} y={290} width={320} height={90} fill='#98b870'/>
+    <path d="M120,370 Q140,342 150,312 Q156,292 142,272 Q130,252 144,232 Q155,212 150,192" fill='none' stroke={K.ltBrown} strokeWidth={20} strokeLinecap='round' opacity={.62}/>
+    <circle cx={150} cy={165} r={38} fill='rgba(255,238,170,.22)'/><circle cx={150} cy={165} r={22} fill='rgba(255,238,170,.18)'/>
+    <g transform="translate(148,295)" stroke={K.ink} strokeWidth={1.8}>
+      <ellipse cx={0} cy={0} rx={13} ry={17} fill={K.cream}/>
+      <circle cx={0} cy={-22} r={10} fill={K.cream}/>
+      <ellipse cx={-5} cy={-38} rx={3.5} ry={9} fill='#f4d0c8'/><ellipse cx={5} cy={-38} rx={3.5} ry={9} fill='#f4d0c8'/>
+      <circle cx={11} cy={3} r={5} fill='white'/>
+    </g>
+    {[[28,310],[52,315],[78,308],[220,312],[260,305]].map(([x,y],i)=><ellipse key={i} cx={x} cy={y} rx={8} ry={4} fill={K.dkGreen} opacity={.45}/>)}
+  </svg>;
+}
+function I6(){ // Pond + willow
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#d4eef8' rx={4}/>
+    <ellipse cx={160} cy={282} rx={122} ry={62} fill='#80c4e8' stroke='#58a0c8' strokeWidth={2}/>
+    {[[118,268],[150,272],[182,262],[200,276],[140,282],[172,286]].map(([x,y],i)=><g key={i} opacity={.7}>
+      <line x1={x-4} y1={y} x2={x+4} y2={y} stroke='white' strokeWidth={1.5} strokeLinecap='round'/>
+      <line x1={x} y1={y-4} x2={x} y2={y+4} stroke='white' strokeWidth={1.5} strokeLinecap='round'/>
+    </g>)}
+    <ellipse cx={160} cy={282} rx={88} ry={40} fill='none' stroke='rgba(255,255,255,.3)' strokeWidth={1.5}/>
+    <ellipse cx={160} cy={282} rx={58} ry={26} fill='none' stroke='rgba(255,255,255,.3)' strokeWidth={1.5}/>
+    <rect x={55} y={138} width={12} height={142} fill={K.ltBrown} stroke={K.ink} strokeWidth={1.5} rx={4}/>
+    {[[-30,32],[-15,12],[0,-8],[15,12],[30,32],[-44,52],[-24,52],[22,52],[46,52]].map(([dx,dy],i)=><path key={i} d={`M61,${148+i*5} Q${61+dx},${200+dy} ${61+dx*.7},${250+dy}`} fill='none' stroke='#88c860' strokeWidth={1.8} strokeLinecap='round' opacity={.9}/>)}
+    <ellipse cx={63} cy={153} rx={55} ry={35} fill='#a8d870' stroke={K.dkGreen} strokeWidth={1.5} opacity={.9}/>
+    <rect x={-10} y={320} width={320} height={60} fill='#b0d888'/>
+    <ellipse cx={75} cy={320} rx={118} ry={14} fill='#b0d888'/>
+    <Bunny x={242} y={298} s={.9}/>
+    <ellipse cx={242} cy={308} rx={12} ry={4} fill='rgba(128,196,232,.5)'/>
+  </svg>;
+}
+function I7(){ // Ducks
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#d4eef0' rx={4}/>
+    <ellipse cx={150} cy={292} rx={142} ry={68} fill='#88cce8' stroke='#58a0c8' strokeWidth={2}/>
+    <rect x={-10} y={332} width={320} height={50} fill='#b0d880'/>
+    <ellipse cx={150} cy={332} rx={168} ry={18} fill='#b0d880'/>
+    {[[98,288],[150,295],[200,282]].map(([x,y],i)=><ellipse key={i} cx={x} cy={y} rx={20} ry={8} fill='none' stroke='rgba(255,255,255,.5)' strokeWidth={1.5}/>)}
+    <Duck x={55} y={278}/><Duck x={108} y={272}/><Duck x={162} y={268}/>
+    {[[82,248],[134,242],[186,238]].map(([x,y],i)=><g key={i}>
+      <ellipse cx={x} cy={y} rx={14} ry={9} fill='white' stroke={K.ink} strokeWidth={1} opacity={.9}/>
+      <path d={`M${x-5},${y+9} L${x-2},${y+16} L${x+5},${y+9}`} fill='white' stroke={K.ink} strokeWidth={1}/>
+      <text x={x} y={y+3.5} textAnchor='middle' fontSize={8.5} fill={K.ink} fontFamily='serif'>quack!</text>
+    </g>)}
+    <Bunny x={250} y={300} s={.93}/>
+    <Tree x={18} y={160} c={K.ltGreen}/><Tree x={268} y={168} c={K.ltGreen}/>
+  </svg>;
+}
+function I8(){ // Playing in water
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <rect width={300} height={370} fill='#c4e8f8' rx={4}/>
+    <circle cx={252} cy={52} r={36} fill={K.yellow} opacity={.72}/>
+    {[0,1,2,3,4,5,6,7].map(i=>{const a=i/8*Math.PI*2;return<line key={i} x1={252+Math.cos(a)*38} y1={52+Math.sin(a)*38} x2={252+Math.cos(a)*52} y2={52+Math.sin(a)*52} stroke='#f8d820' strokeWidth={2} strokeLinecap='round'/>;}) }
+    <ellipse cx={150} cy={295} rx={147} ry={72} fill='#70bce8' stroke='#48a0c8' strokeWidth={2}/>
+    {[[98,262],[150,252],[200,262],[130,272],[170,268]].map(([x,y],i)=><g key={i}>
+      {[0,60,120,180,240,300].map((a,j)=><line key={j} x1={x+Math.cos(a/180*Math.PI)*4} y1={y+Math.sin(a/180*Math.PI)*4} x2={x+Math.cos(a/180*Math.PI)*(10+j%2*4)} y2={y+Math.sin(a/180*Math.PI)*(10+j%2*4)-4} stroke='#a0d8f8' strokeWidth={1.5} strokeLinecap='round'/>)}
+      <circle cx={x} cy={y} r={3} fill='#a0d8f8'/>
+    </g>)}
+    <path d="M3,288 Q50,278 100,288 Q150,298 200,288 Q250,278 297,288" fill='none' stroke='rgba(255,255,255,.5)' strokeWidth={1.5}/>
+    <Duck x={75} y={272}/><Duck x={182} y={268}/>
+    <g transform="translate(138,270)" stroke={K.ink} strokeWidth={1.8}>
+      <circle cx={0} cy={0} r={10} fill={K.cream}/><ellipse cx={-5} cy={-16} rx={3.5} ry={9} fill='#f4d0c8'/><ellipse cx={5} cy={-16} rx={3.5} ry={9} fill='#f4d0c8'/>
+      <circle cx={-3} cy={-1} r={1.8} fill={K.ink}/><circle cx={3} cy={-1} r={1.8} fill={K.ink}/>
+      <ellipse cx={0} cy={3} rx={2} ry={1.3} fill={K.pink} stroke='none'/>
+    </g>
+    <Stars pts={[[58,205,.8],[102,192],[202,196],[242,208],[150,182]]}/>
+    <rect x={-10} y={342} width={320} height={38} fill='#b0d880'/>
+  </svg>;
+}
+function I9(){ // Sunset
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <defs><linearGradient id="sky9" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e8b0d8"/><stop offset="45%" stopColor="#f0cc80"/><stop offset="100%" stopColor="#f8e4b8"/></linearGradient></defs>
+    <rect width={300} height={370} fill='url(#sky9)' rx={4}/>
+    <circle cx={150} cy={252} r={46} fill='#f8c838' opacity={.8}/>
+    <ellipse cx={150} cy={297} rx={145} ry={20} fill='#f8d868' opacity={.28}/>
+    {[[38,30],[78,50],[118,26],[198,36],[238,22],[268,55],[28,68],[178,16]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={2} fill='white' opacity={.75}/>)}
+    <g transform="translate(256,36)">
+      <circle cx={0} cy={0} r={14} fill='white' opacity={.9}/>
+      <circle cx={6} cy={-4} r={11} fill='#e8b0d8'/>
+    </g>
+    <rect x={-10} y={297} width={320} height={83} fill='#9ab868'/>
+    <ellipse cx={150} cy={297} rx={168} ry={17} fill='#9ab868'/>
+    <path d="M268,370 Q238,352 198,332 Q168,316 150,297" fill='none' stroke={K.ltBrown} strokeWidth={15} strokeLinecap='round' opacity={.58}/>
+    <ellipse cx={28} cy={242} rx={30} ry={42} fill='#406428'/><rect x={22} y={262} width={12} height={40} fill='#304820'/>
+    <ellipse cx={270} cy={247} rx={28} ry={38} fill='#406428'/><rect x={264} y={267} width={12} height={35} fill='#304820'/>
+    <Bunny x={218} y={297} s={.93}/>
+    <circle cx={218} cy={280} r={30} fill='rgba(248,214,118,.14)'/>
+  </svg>;
+}
+function I10(){ // Cozy burrow
+  return<svg viewBox="0 0 300 370" style={{width:'100%',height:'100%'}}>
+    <defs><radialGradient id="warm10" cx="50%" cy="55%" r="55%"><stop offset="0%" stopColor="#f8e8b8"/><stop offset="100%" stopColor="#e8c870"/></radialGradient></defs>
+    <rect width={300} height={370} fill='url(#warm10)' rx={4}/>
+    <path d="M-5,0 Q150,-18 305,0 L305,370 L-5,370 Z" fill='#c8980' opacity={.18}/>
+    <path d="M-8,42 Q150,12 308,42" fill='none' stroke='#b08840' strokeWidth={2.5} opacity={.38}/>
+    <rect x={58} y={242} width={184} height={82} rx={14} fill='#e8c898' stroke={K.ink} strokeWidth={2}/>
+    <ellipse cx={108} cy={252} rx={30} ry={18} fill='#f0d8b0' stroke={K.ink} strokeWidth={1.5}/>
+    <path d="M58,262 Q90,252 150,260 Q212,268 242,262 L242,322 Q212,318 150,320 Q90,322 58,318 Z" fill='#d8a0b0' stroke={K.ink} strokeWidth={1.5}/>
+    <path d="M78,283 Q150,272 222,283" fill='none' stroke='#c89098' strokeWidth={1.5} strokeDasharray="8,6"/>
+    <path d="M74,298 Q150,287 226,298" fill='none' stroke='#c89098' strokeWidth={1.5} strokeDasharray="8,6"/>
+    <g transform="translate(150,254)" stroke={K.ink} strokeWidth={1.8}>
+      <ellipse cx={0} cy={0} rx={14} ry={10} fill={K.cream}/>
+      <circle cx={17} cy={-4} r={10} fill={K.cream}/>
+      <ellipse cx={11} cy={-16} rx={3.5} ry={7} fill='#f4d0c8'/><ellipse cx={21} cy={-17} rx={3.5} ry={7} fill='#f4d0c8'/>
+      <path d="M12,-7 Q15,-9 17,-7" fill='none' strokeLinecap='round'/>
+      <path d="M18,-7 Q21,-9 23,-7" fill='none' strokeLinecap='round'/>
+      <ellipse cx={20} cy={-3} rx={1.5} ry={1} fill={K.pink} stroke='none'/>
+    </g>
+    <g opacity={.62}>
+      <ellipse cx={200} cy={158} rx={40} ry={26} fill='white'/><ellipse cx={220} cy={148} rx={28} ry={20} fill='white'/><ellipse cx={184} cy={150} rx={22} ry={16} fill='white'/>
+      <circle cx={195} cy={157} r={3} fill={K.yellow} opacity={.85}/>
+      <circle cx={206} cy={150} r={2.5} fill={K.yellow} opacity={.85}/>
+      <circle cx={216} cy={158} r={3} fill={K.yellow} opacity={.85}/>
+      <circle cx={163} cy={205} r={4} fill='white' opacity={.6}/><circle cx={158} cy={218} r={3} fill='white' opacity={.5}/><circle cx={154} cy={228} r={2} fill='white' opacity={.4}/>
+    </g>
+    <rect x={35} y={216} width={10} height={26} fill='#f5e8c0' stroke={K.ink} strokeWidth={1.5} rx={2}/>
+    <rect x={32} y={239} width={16} height={6} fill={K.ltBrown} stroke={K.ink} strokeWidth={1} rx={1}/>
+    <path d="M40,216 Q43,206 40,200 Q37,206 40,216" fill={K.yellow} stroke='#f09828' strokeWidth={1}/>
+    <circle cx={40} cy={210} r={20} fill='rgba(248,196,90,.14)'/>
+    <rect x={220} y={62} width={56} height={52} rx={4} fill='#b8d8f0' stroke={K.ink} strokeWidth={2}/>
+    <path d="M248,62 L248,114" stroke={K.ink} strokeWidth={1.5}/><path d="M220,88 L276,88" stroke={K.ink} strokeWidth={1.5}/>
+    {[[230,72],[264,74],[233,97],[268,98]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={1.5} fill='white' opacity={.9}/>)}
+    <ellipse cx={150} cy={337} rx={112} ry={21} fill='#c8a870' stroke={K.ink} strokeWidth={1.5}/>
+    <ellipse cx={150} cy={337} rx={82} ry={14} fill='none' stroke='#d8b880' strokeWidth={1} strokeDasharray="10,5"/>
+  </svg>;
+}
+
+const ILLUS=[I0,I1,I2,I3,I4,I5,I6,I7,I8,I9,I10];
+
+// ── Ornate border ──────────────────────────────────────────────────────
+function OrnateBorder({c='#8b6c40'}){
+  const corner=(cx,cy,rot)=>(
+    <g transform={`rotate(${rot},${cx},${cy})`} stroke={c} strokeWidth={1.5} fill='none' strokeLinecap='round'>
+      <circle cx={cx} cy={cy} r={5} fill={c} opacity={.75} stroke='none'/>
+      <path d={`M${cx+5},${cy} Q${cx+16},${cy+9} ${cx+9},${cy+19}`} opacity={.65}/>
+      <path d={`M${cx},${cy+5} Q${cx+9},${cy+16} ${cx+19},${cy+9}`} opacity={.65}/>
+    </g>
+  );
+  return(
+    <svg viewBox="0 0 384 524" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:15}} preserveAspectRatio="none">
+      <rect x={2} y={2} width={380} height={520} fill='none' stroke={c} strokeWidth={2} rx={2}/>
+      <rect x={10} y={10} width={364} height={504} fill='none' stroke={c} strokeWidth={1} rx={1} opacity={.45}/>
+      {corner(2,2,0)}{corner(382,2,90)}{corner(382,522,180)}{corner(2,522,270)}
+      <ellipse cx={192} cy={3} rx={13} ry={5.5} fill={c} opacity={.45}/>
+      <ellipse cx={192} cy={521} rx={13} ry={5.5} fill={c} opacity={.45}/>
+      <ellipse cx={3} cy={262} rx={5.5} ry={13} fill={c} opacity={.45}/>
+      <ellipse cx={381} cy={262} rx={5.5} ry={13} fill={c} opacity={.45}/>
+    </svg>
+  );
+}
+
+// ── Paper texture ──────────────────────────────────────────────────────
+const TEXTURE='url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.88\' numOctaves=\'4\'/%3E%3CfeColorMatrix type=\'saturate\' values=\'0\'/%3E%3C/filter%3E%3Crect width=\'100\' height=\'100\' filter=\'url(%23n)\' opacity=\'0.055\'/%3E%3C/svg%3E")';
+
+// ── Page components ────────────────────────────────────────────────────
+function LeftPage({idx}){
+  const spread=STORY[idx];
+  const isCover=spread.type==='cover';
+  return(
+    <div style={{position:'absolute',inset:0,background:isCover?'#f0e4c8':'linear-gradient(90deg,#e4d4a8 0%,#f5edd4 9%,#f5edd4 100%)'}}>
+      <div style={{position:'absolute',inset:0,backgroundImage:TEXTURE}}/>
+      <OrnateBorder c={isCover?'#7a5018':'#8b6c40'}/>
+      <div style={{position:'absolute',inset:'58px 46px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',zIndex:5}}>
+        {isCover?<>
+          <div style={{fontFamily:"'IM Fell English',serif",fontSize:13,letterSpacing:'0.2em',color:'#9a7028',textTransform:'uppercase',marginBottom:10}}>A Story for Children</div>
+          <div style={{width:48,height:1,background:'#9a7028',opacity:.5,margin:'4px 0 14px'}}/>
+          <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:25,color:'#3e2208',lineHeight:1.35,textShadow:'1px 1px 0 rgba(255,228,170,.8)'}}>Pip's<br/>Forest<br/>Adventure</div>
+          <div style={{width:48,height:1,background:'#9a7028',opacity:.5,margin:'14px 0 10px'}}/>
+          <div style={{fontFamily:"'IM Fell English',serif",fontStyle:'italic',fontSize:13,color:'#7a5020',lineHeight:1.6}}>A tale of curiosity,<br/>friendship &amp; wonder</div>
+          <div style={{marginTop:18,color:'#9a7028',fontSize:12,letterSpacing:'0.35em'}}>✦ ✦ ✦</div>
+        </>:<>
+          <p style={{fontFamily:"'IM Fell English',serif",fontStyle:'italic',fontSize:21,lineHeight:1.85,color:'#3a2410',textWrap:'pretty'}}>{spread.text}</p>
+        </>}
+      </div>
+      {!isCover&&<div style={{position:'absolute',bottom:28,left:'50%',transform:'translateX(-50%)',fontFamily:"'IM Fell English',serif",fontSize:12,color:'#9a7840',letterSpacing:'.1em',zIndex:15}}>— {idx} —</div>}
+      {/* spine shadow */}
+      <div style={{position:'absolute',right:0,top:0,bottom:0,width:38,background:'linear-gradient(90deg,transparent,rgba(0,0,0,.1))',pointerEvents:'none',zIndex:10}}/>
+    </div>
+  );
+}
+function RightPage({idx}){
+  const IllusComp=ILLUS[idx];
+  return(
+    <div style={{position:'absolute',inset:0,background:'linear-gradient(90deg,#f5edd4 0%,#f5edd4 92%,#ece0c0 100%)'}}>
+      <div style={{position:'absolute',inset:0,backgroundImage:TEXTURE}}/>
+      <OrnateBorder/>
+      <div style={{position:'absolute',inset:'58px 44px',zIndex:5,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <IllusComp/>
+      </div>
+      {/* spine shadow */}
+      <div style={{position:'absolute',left:0,top:0,bottom:0,width:34,background:'linear-gradient(270deg,transparent,rgba(0,0,0,.07))',pointerEvents:'none',zIndex:10}}/>
+    </div>
+  );
+}
+
+// ── Book ───────────────────────────────────────────────────────────────
+const PAGE_W=420,PAGE_H=580,SPINE_W=26;
+
+function Book(){
+  const saved=parseInt(localStorage.getItem('pip_spread')||'0',10);
+  const [idx,setIdx]=useState(Math.min(saved,STORY.length-1));
+  const [anim,setAnim]=useState(null); // null | 'next' | 'prev'
+  const [pending,setPending]=useState(null);
+  const timerRef=useRef(null);
+
+  const go=useCallback((dir)=>{
+    if(anim)return;
+    const ni=dir==='next'?idx+1:idx-1;
+    if(ni<0||ni>=STORY.length)return;
+    setPending(ni);setAnim(dir);
+    timerRef.current=setTimeout(()=>{
+      setIdx(ni);localStorage.setItem('pip_spread',ni);
+      setAnim(null);setPending(null);
+    },760);
+  },[anim,idx]);
+
+  useEffect(()=>{
+    const h=(e)=>{if(e.key==='ArrowRight')go('next');if(e.key==='ArrowLeft')go('prev');};
+    window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);
+  },[go]);
+
+  const ps={width:PAGE_W,height:PAGE_H,position:'relative',overflow:'hidden',flexShrink:0};
+  const psV={...ps,overflow:'visible'};
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:22}}>
+      {/* Book */}
+      <div style={{perspective:'2200px'}}>
+        <div style={{width:PAGE_W*2+SPINE_W,height:PAGE_H,display:'flex',position:'relative',filter:'drop-shadow(0 22px 44px rgba(0,0,0,.58))'}}>
+          {/* top/bottom edges */}
+          <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#e4d4a0,#f8edd0,#e4d4a0)',zIndex:25,pointerEvents:'none'}}/>
+          <div style={{position:'absolute',bottom:0,left:0,right:0,height:4,background:'linear-gradient(90deg,#c0902a,#d4a83c,#c0902a)',zIndex:25,pointerEvents:'none'}}/>
+
+          {/* LEFT */}
+          <div style={anim==='prev'?{...psV,zIndex:4}:{...ps,zIndex:1}}>
+            {anim==='prev'&&<div style={{position:'absolute',inset:0,zIndex:1}}><LeftPage idx={pending}/></div>}
+            {anim==='prev'?(
+              <div className="flip-page to-right" style={{zIndex:3}}>
+                <div className="flip-face"><LeftPage idx={idx}/></div>
+                <div className="flip-face flip-back"><RightPage idx={pending}/></div>
+              </div>
+            ):(
+              <div style={{position:'absolute',inset:0}}><LeftPage idx={idx}/></div>
+            )}
+          </div>
+
+          {/* SPINE */}
+          <div style={{width:SPINE_W,height:PAGE_H,flexShrink:0,background:'linear-gradient(90deg,#5c3a10 0%,#8c5c28 15%,#b8823c 32%,#d0a050 50%,#b8823c 68%,#8c5c28 85%,#5c3a10 100%)',zIndex:3,boxShadow:'2px 0 7px rgba(0,0,0,.32),-2px 0 7px rgba(0,0,0,.22)',position:'relative'}}>
+            <div style={{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%) rotate(-90deg)',whiteSpace:'nowrap',fontFamily:"'Cinzel Decorative',serif",fontSize:8,color:'rgba(255,238,190,.8)',letterSpacing:'.16em'}}>Pip's Forest Adventure</div>
+          </div>
+
+          {/* RIGHT */}
+          <div style={anim==='next'?{...psV,zIndex:4}:{...ps,zIndex:1}}>
+            {anim==='next'&&<div style={{position:'absolute',inset:0,zIndex:1}}><RightPage idx={pending}/></div>}
+            {anim==='next'?(
+              <div className="flip-page to-left" style={{zIndex:3}}>
+                <div className="flip-face"><RightPage idx={idx}/></div>
+                <div className="flip-face flip-back"><LeftPage idx={pending}/></div>
+              </div>
+            ):(
+              <div style={{position:'absolute',inset:0}}><RightPage idx={idx}/></div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div style={{display:'flex',alignItems:'center',gap:28}}>
+        <button onClick={()=>go('prev')} disabled={!!anim||idx===0}
+          style={{width:46,height:46,borderRadius:'50%',border:'1.5px solid rgba(255,255,255,.45)',background:'rgba(255,255,255,.12)',color:'white',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)',transition:'all .2s',opacity:(!anim&&idx>0)?1:.3,cursor:(!anim&&idx>0)?'pointer':'default'}}
+          onMouseEnter={e=>{if(!anim&&idx>0)e.currentTarget.style.background='rgba(255,255,255,.28)';}}
+          onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.12)';}}>◀</button>
+
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+          <div style={{display:'flex',gap:5,alignItems:'center'}}>
+            {STORY.map((_,i)=>(
+              <div key={i} onClick={()=>{if(!anim){setIdx(i);localStorage.setItem('pip_spread',i);}}}
+                style={{width:i===idx?9:6,height:i===idx?9:6,borderRadius:'50%',background:i===idx?'rgba(255,255,255,.95)':'rgba(255,255,255,.28)',transition:'all .3s',cursor:'pointer'}}/>
+            ))}
+          </div>
+          <div style={{color:'rgba(255,255,255,.55)',fontSize:11,fontFamily:"'IM Fell English',serif",letterSpacing:'.1em'}}>
+            {idx===0?'Cover':`Page ${idx} of ${STORY.length-1}`}
+          </div>
+        </div>
+
+        <button onClick={()=>go('next')} disabled={!!anim||idx===STORY.length-1}
+          style={{width:46,height:46,borderRadius:'50%',border:'1.5px solid rgba(255,255,255,.45)',background:'rgba(255,255,255,.12)',color:'white',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)',transition:'all .2s',opacity:(!anim&&idx<STORY.length-1)?1:.3,cursor:(!anim&&idx<STORY.length-1)?'pointer':'default'}}
+          onMouseEnter={e=>{if(!anim&&idx<STORY.length-1)e.currentTarget.style.background='rgba(255,255,255,.28)';}}
+          onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.12)';}}>▶</button>
+      </div>
+
+      <div style={{color:'rgba(255,255,255,.3)',fontSize:10,letterSpacing:'.1em',fontFamily:"'IM Fell English',serif"}}>← → arrow keys also work</div>
+    </div>
+  );
+}
+
+function App(){
+  useEffect(()=>{
+    function scale(){
+      const tw=PAGE_W*2+SPINE_W+160,th=PAGE_H+120;
+      const s=Math.min(window.innerWidth/tw,window.innerHeight/th,.98);
+      document.querySelector('.scaler').style.transform=`scale(${s})`;
+    }
+    scale();window.addEventListener('resize',scale);return()=>window.removeEventListener('resize',scale);
+  },[]);
+  return(
+    <div style={{width:'100vw',height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+      <div className="scaler" style={{transformOrigin:'center center'}}><Book/></div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

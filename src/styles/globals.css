@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 50% 30%, #d9ead9 0%, #c4dfd0 45%, #b8d4c5 100%);
+  min-height: 100vh;
+  overflow: hidden;
+  font-family: var(--font-serif), Georgia, serif;
+  color: #3d2817;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Inline adjective input: italic serif continuous with story text */
+.adjective-input {
+  font-family: inherit;
+  font-style: italic;
+  font-size: inherit;
+  line-height: inherit;
+  color: #b55d3d;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed #d0714e;
+  padding: 0 6px 2px;
+  min-width: 6.5ch;
+  width: auto;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.adjective-input:focus {
+  border-bottom-color: #b55d3d;
+  border-bottom-style: solid;
+  color: #b55d3d;
+}
+.adjective-input::placeholder {
+  color: #ee9878;
+  opacity: 0.75;
+}
+
+/* Shimmer for loading illustration */
+@keyframes shimmer {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+.shimmer {
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Sweeping highlight across the skeleton image */
+@keyframes skeleton-sweep {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Reusable pill button used for adjective chips, nav, and toolbar */
+.pill {
+  font-family: var(--font-serif), Georgia, serif;
+  letter-spacing: 0.08em;
+}
